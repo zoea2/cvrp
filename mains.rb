@@ -5,7 +5,7 @@ num = line[0].to_i
 best = line[1].to_f
 $load = input.gets.to_i
 $MAX = 1000000000000
-$pCorss = 0.3
+$pCross = 0.3
 $pMutation = 0.01
 $dist = []
 class Cust
@@ -110,7 +110,8 @@ line = input.gets.split
 origin.x = line[0].to_f
 origin.y = line[1].to_f
 $cust = Array.new
-input.each do	|line|
+num.times do
+	line = input.gets
 	temp = line.split
 	$cust << Cust.new(temp[0],temp[1],temp[2],temp[3])
 end
@@ -217,7 +218,7 @@ def Roulette(population,newPopulation,num)
 end
 def cross(newPopulation,num)
 	newPopulation.each_with_index do |indi,index|
-		if rand_val < $pCorss
+		if rand_val < $pCross
 			r0 = rand(num)
 			r0 = rand(num) while r0 == index
 			r1 = rand(num)
