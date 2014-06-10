@@ -1,3 +1,7 @@
+require "opengl"
+require 'glu'
+require 'glut'
+include Gl,Glu,Glut
 output = File.new("output.txt","w")
 input = File.new("taillard/tai75a.dat","r") 
 line = input.gets.split
@@ -8,6 +12,8 @@ $MAX = 1000000000000
 $pCross = 0.3
 $pMutation = 0.01
 $dist = []
+$scale = 100.0
+$generation = 0
 class Cust
 	attr_accessor :x, :y, :load,:angle,:index
 	def initialize(index,x,y,load) 
@@ -91,7 +97,7 @@ class Gene
 		@gene.each_with_index do |node,index|
 			path << $cust[node].index
 			path2 << node
-			if @splits.include? index
+			if @splits.include? (index) || index == @gene.length - 1
 				allpath << path
 				load = 0
 				path2.each { |i| load += $cust[i].load }
@@ -105,10 +111,56 @@ class Gene
 
 
 end
-origin = Cust.new(0,0,0,$load)
+draw_line2 = proc do
+	glClear (GL_COLOR_BUFFER_BIT)
+	glColor3f(1.0,1.0,1.0)
+	glBegin(GL_LINES)
+	glVertex2f(30/$scale,30/$scale)
+	glVertex2f(40/$scale,10/$scale)
+	glVertex2f(40/$scale,10/$scale)
+	glVertex2f(-36/$scale,25/$scale)
+	glEnd()	
+	glFlush()
+end
+draw_line = proc do 
+	glClear (GL_COLOR_BUFFER_BIT)
+	glColor3f(1.0,1.0,1.0)
+	glBegin(GL_LINES)
+	path2 = [$best.gene.length]
+	$best.gene.each_with_index do |node,index|
+		path2 << node
+		if $best.splits.include?(index) || index == $best.gene.length - 1
+			path2 << $best.gene.length
+			path2.each_with_index do |point,index0|				
+				if index0 < path2.length - 1 
+					#glBegin(GL_LINES)
+					cur = point
+					if cur == $best.gene.length
+						glVertex2f($origin.x/$scale,$origin.y/$scale)
+					else
+						glVertex2f($cust[cur].x/$scale,$cust[cur].y/$scale)
+					end
+					cur = path2[index0+1]
+					if cur == $best.gene.length
+						glVertex2f($origin.x/$scale,$origin.y/$scale)
+					else
+						glVertex2f($cust[cur].x/$scale,$cust[cur].y/$scale)
+					end
+				end				
+			end
+			path2 = [$best.gene.length]
+		end
+
+	end
+	glEnd()	
+	glFlush()
+	glutSwapBuffers()
+end
+
+$origin = Cust.new(0,0,0,$load)
 line = input.gets.split
-origin.x = line[0].to_f
-origin.y = line[1].to_f
+$origin.x = line[0].to_f
+$origin.y = line[1].to_f
 $cust = Array.new
 num.times do
 	line = input.gets
@@ -125,8 +177,8 @@ for i in (0..num-1)
 	end
 end
 $cust.each do |indi| 
-	indi.count_angle(origin) 
-	$dist[indi.index][0] = $dist[0][indi.index] = origin.count_dist(indi)
+	indi.count_angle($origin) 
+	$dist[indi.index][0] = $dist[0][indi.index] = $origin.count_dist(indi)
 end
 
 $cust.sort!
@@ -179,8 +231,8 @@ def recombine(population,num)
 end
 recombine(population,num)
 #p population[0]
-best = Gene.new
-best.cost = $MAX
+$best = Gene.new
+$best.cost = $MAX
 def keep_best_gene(best,population)
 	population.each do |indi|
 		if indi.cost < best.cost
@@ -189,10 +241,10 @@ def keep_best_gene(best,population)
 	end
 	best
 end
-best = keep_best_gene(best,population)
-p best
-best.count_cost(num)
-p best
+$best = keep_best_gene($best,population)
+p $best
+$best.count_cost(num)
+p $best
 newPopulation = Array.new
 #population.each { |indi|  newPopulation << indi.dclone }
 def rand_val(left = 0,right = 1)
@@ -263,12 +315,8 @@ def throw_worst(best,population)
 	end
 	population[index0] = best.dclone
 end
-
-
-output = File.new("output.txt","w")
-output.puts best 
-
-for i in (1..100000)
+myIdle = proc do
+	$generation += 1
 	Roulette(population,newPopulation,num)
 	cross(newPopulation,num)
 	mutation(newPopulation,num)
@@ -276,16 +324,31 @@ for i in (1..100000)
 		idvi.split_route()
 		idvi.count_cost(num)
 	end
-	best = keep_best_gene(best,newPopulation) 
-	throw_worst(best,newPopulation)
+	$best = keep_best_gene($best,newPopulation) 
+	throw_worst($best,newPopulation)
 	population.clear
-	newPopulation.each {|idvi| population << idvi.dclone}
-	output.puts i if i % 10000 == 0
+	newPopulation.each {|idvi| population << idvi.dclone}	
+	if $generation % 100 == 0		
+		puts $generation	
+		puts $best
+	end
+	draw_line.call
 end
+output = File.new("output.txt","w")
+output.puts best 
+
+glutInit
+glutInitDisplayMode (GLUT_RGBA | GLUT_DOUBLE)
+glutInitWindowSize(1000,500)
+glutInitWindowPosition(100, 100)
+glutCreateWindow
+glutDisplayFunc(draw_line)
+glutIdleFunc(myIdle)
+glutMainLoop()
+
 
 output.puts population
 output.puts best 
 output.close
-
 
 
